@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mattes/migrate/driver"
-	"github.com/mattes/migrate/file"
-	"github.com/mattes/migrate/migrate/direction"
-	pipep "github.com/mattes/migrate/pipe"
+	"github.com/syreclabs/migrate/driver"
+	"github.com/syreclabs/migrate/file"
+	"github.com/syreclabs/migrate/migrate/direction"
+	pipep "github.com/syreclabs/migrate/pipe"
 )
 
 // Up applies all available migrations

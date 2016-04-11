@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/mattes/migrate/migrate/direction"
 	"go/token"
 	"io/ioutil"
 	"path"
@@ -13,6 +12,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/syreclabs/migrate/migrate/direction"
 )
 
 var filenameRegex = `^([0-9]+)_(.*)\.(up|down)\.%s$`
@@ -63,10 +64,37 @@ type MigrationFile struct {
 // MigrationFiles is a slice of MigrationFiles
 type MigrationFiles []MigrationFile
 
+type (
+	// DirReader is a function used to read migrations dir contents
+	DirReader func(name string) ([]string, error)
+	// FileRader is a function used to read migration file contents
+	FileReader func(filename string) ([]byte, error)
+)
+
+// MigrationDirReader is used to read migrations dir contents. By default it uses ioutil.ReadDir
+// to read file system directory. Set this to go-bindata's AssetDir to read from embedded assets.
+var MigrationDirReader DirReader = readDir
+
+// MigrationFileReader is used to read migration file contents. By default it uses ioutil.ReadFile,
+// set to go-bindata's Asset to read embedded migration asset.
+var MigrationFileReader FileReader = ioutil.ReadFile
+
+func readDir(dirname string) ([]string, error) {
+	files, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]string, 0, len(files))
+	for _, file := range files {
+		res = append(res, file.Name())
+	}
+	return res, nil
+}
+
 // ReadContent reads the file's content if the content is empty
 func (f *File) ReadContent() error {
 	if len(f.Content) == 0 {
-		content, err := ioutil.ReadFile(path.Join(f.Path, f.FileName))
+		content, err := MigrationFileReader(path.Join(f.Path, f.FileName))
 		if err != nil {
 			return err
 		}
@@ -152,7 +180,7 @@ func (mf *MigrationFiles) From(version uint64, relativeN int) (Files, error) {
 // ReadMigrationFiles reads all migration files from a given path
 func ReadMigrationFiles(path string, filenameRegex *regexp.Regexp) (files MigrationFiles, err error) {
 	// find all migration files in path
-	ioFiles, err := ioutil.ReadDir(path)
+	ioFiles, err := MigrationDirReader(path)
 	if err != nil {
 		return nil, err
 	}
@@ -163,19 +191,10 @@ func ReadMigrationFiles(path string, filenameRegex *regexp.Regexp) (files Migrat
 		d        direction.Direction
 	}
 	tmpFiles := make([]*tmpFile, 0)
-	tmpFileMap := map[uint64]map[direction.Direction]tmpFile{}
 	for _, file := range ioFiles {
-		version, name, d, err := parseFilenameSchema(file.Name(), filenameRegex)
+		version, name, d, err := parseFilenameSchema(file, filenameRegex)
 		if err == nil {
-			if _, ok := tmpFileMap[version]; !ok {
-				tmpFileMap[version] = map[direction.Direction]tmpFile{}
-			}
-			if existing, ok := tmpFileMap[version][d]; !ok {
-				tmpFileMap[version][d] = tmpFile{version: version, name: name, filename: file.Name(), d: d}
-			} else {
-				return nil, fmt.Errorf("duplicate migration file version %d : %q and %q", version, existing.filename, file.Name())
-			}
-			tmpFiles = append(tmpFiles, &tmpFile{version, name, file.Name(), d})
+			tmpFiles = append(tmpFiles, &tmpFile{version, name, file, d})
 		}
 	}
 

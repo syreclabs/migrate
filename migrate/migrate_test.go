@@ -6,8 +6,7 @@ import (
 	"testing"
 	// Ensure imports for each driver we wish to test
 
-	_ "github.com/mattes/migrate/driver/postgres"
-	_ "github.com/mattes/migrate/driver/sqlite3"
+	_ "github.com/syreclabs/migrate/driver/postgres"
 )
 
 // Add Driver URLs here to test basic Up, Down, .. functions.
@@ -59,7 +58,7 @@ func TestCreate(t *testing.T) {
 func TestReset(t *testing.T) {
 	for _, driverUrl := range driverUrls {
 		t.Logf("Test driver: %s", driverUrl)
-		tmpdir, err := ioutil.TempDir("/", "migrate-test")
+		tmpdir, err := ioutil.TempDir("/tmp", "migrate-test")
 		if err != nil {
 			t.Fatal(err)
 		}
